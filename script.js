@@ -3,65 +3,72 @@ document.addEventListener("DOMContentLoaded", () => {
   const sizeKB = document.getElementById("sizeKB");
   const resizeBtn = document.getElementById("resizeBtn");
   const result = document.getElementById("result");
+  const preview = document.getElementById("preview");
+
+  let resized = false;
 
   resizeBtn.addEventListener("click", () => {
-    const file = imageFile.files[0];
-    const targetSize = parseInt(sizeKB.value);
+    if(resized){
+      // Reset form
+      imageFile.value = "";
+      sizeKB.value = "";
+      result.innerHTML = "Upload an image and enter target size.";
+      preview.src = "";
+      resizeBtn.textContent = "Resize Image";
+      resized = false;
+      return;
+    }
 
-    if (!file) {
-      alert("Please upload an image.");
-      return;
-    }
-    if (!targetSize || targetSize <= 0) {
-      alert("Please enter a valid target size in KB.");
-      return;
-    }
+    const file = imageFile.files[0];
+    const targetKB = parseInt(sizeKB.value);
+
+    if(!file) return alert("Please upload an image.");
+    if(!targetKB || targetKB <= 0) return alert("Enter valid target size.");
 
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = e => {
       const img = new Image();
       img.src = e.target.result;
-
-      img.onload = function() {
-        let canvas = document.createElement("canvas");
-        let ctx = canvas.getContext("2d");
-
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
         canvas.width = img.width;
         canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
+        ctx.drawImage(img,0,0);
 
         let quality = 0.9;
 
-        function compressAndCheck() {
+        function compress() {
           const dataURL = canvas.toDataURL("image/jpeg", quality);
-          const size = Math.round((dataURL.length * (3/4)) / 1024);
-
-          if (size > targetSize && quality > 0.05) {
+          const size = Math.round((dataURL.length*3/4)/1024);
+          if(size > targetKB && quality > 0.05){
             quality -= 0.05;
-            compressAndCheck();
-          } else if (size > targetSize && quality <= 0.05) {
-            // Reduce dimensions if quality too low
+            compress();
+          } else if(size > targetKB && quality <= 0.05){
             canvas.width *= 0.9;
             canvas.height *= 0.9;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+            ctx.drawImage(img,0,0,canvas.width,canvas.height);
             quality = 0.9;
-            compressAndCheck();
+            compress();
           } else {
             const link = document.createElement("a");
             link.href = dataURL;
-            link.download = `resized_${file.name}`;
-            link.textContent = `Download Resized Image (${size} KB)`;
+            link.download = "resized_" + file.name;
+            link.textContent = `Download (${size} KB)`;
             link.className = "download-link";
             result.innerHTML = "";
             result.appendChild(link);
+            preview.src = dataURL;
+
+            // Change button to Reset
+            resizeBtn.textContent = "Reset";
+            resized = true;
           }
         }
-
-        compressAndCheck();
-      };
+        compress();
+      }
     };
-
     reader.readAsDataURL(file);
   });
 });
